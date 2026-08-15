@@ -1,4 +1,49 @@
-import { GoogleGenAI } from '@google/genai';import { z } from 'zod';import { config } from './config.js';import { logger } from './logger.js';
-const responseSchema=z.object({summary:z.string().min(1).max(500),details:z.array(z.string().min(1).max(500)).min(1).max(6),nextStep:z.string().min(1).max(300)});export type Explanation=z.infer<typeof responseSchema>;
-const fallback=(command:string):Explanation=>({summary:'コマンドは実行されました。AI解説は現在利用できません。',details:[`実行したコマンド: ${command}`,'ターミナルとラボ機能は引き続き利用できます。','出力中のポート番号、状態、サービス名に注目してください。'],nextStep:command.startsWith('nmap')?'curl http://target:3000':'nmap target'});
-export async function explain(input:{lesson:string;description:string;command:string;output:string}):Promise<Explanation>{if(!config.GEMINI_API_KEY)return fallback(input.command);const started=Date.now();try{const ai=new GoogleGenAI({apiKey:config.GEMINI_API_KEY});const prompt=`Lesson: ${input.lesson}\nDescription: ${input.description}\nCommand: ${input.command.slice(0,300)}\nOutput:\n${input.output.slice(-8000)}\n\nこの演習結果について、何が分かったか、各項目の意味、次に何を確認するとよいかを説明してください。`;const result=await ai.models.generateContent({model:config.GEMINI_MODEL,contents:prompt,config:{systemInstruction:'あなたはCyberBoxのサイバーセキュリティ学習アシスタントです。初心者向けに日本語で簡潔に説明してください。対象は許可済みの内部演習環境 target のみです。外部サイトや第三者サーバーへの攻撃手順は案内しないでください。',responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{summary:{type:'STRING'},details:{type:'ARRAY',items:{type:'STRING'}},nextStep:{type:'STRING'}},required:['summary','details','nextStep']}}});const parsed=responseSchema.parse(JSON.parse(result.text??'{}'));logger.info({model:config.GEMINI_MODEL,responseTimeMs:Date.now()-started,success:true},'gemini request');return parsed}catch(error){logger.warn({error,model:config.GEMINI_MODEL,responseTimeMs:Date.now()-started,success:false},'gemini unavailable');return fallback(input.command)}}
+import { GoogleGenAI } from '@google/genai';
+import { z } from 'zod';
+import { config } from './config.js';
+import { logger } from './logger.js';
+
+const responseSchema = z.object({
+  summary: z.string().min(1).max(500),
+  details: z.array(z.string().min(1).max(500)).min(1).max(6),
+  nextStep: z.string().min(1).max(300),
+});
+export type Explanation = z.infer<typeof responseSchema>;
+
+const fallback = (command: string): Explanation => ({
+  summary: 'コマンドを実行しました。Gemini解説は現在利用できません。',
+  details: [
+    `実行したコマンド: ${command}`,
+    'ターミナルとラボ環境は引き続き利用できます。',
+    '出力中のポート番号、状態、サービス名に注目してください。',
+  ],
+  nextStep: command.startsWith('nmap') ? 'curl http://target:3000' : 'nmap -p 3000 target',
+});
+
+export async function explain(input: { lesson: string; description: string; command: string; output: string }): Promise<Explanation> {
+  if (!config.GEMINI_API_KEY) return fallback(input.command);
+  const started = Date.now();
+  try {
+    const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+    const prompt = `Lesson: ${input.lesson}\nDescription: ${input.description}\nCommand: ${input.command.slice(0, 300)}\nOutput:\n${input.output.slice(-8000)}\n\nこの演習結果について、何が分かったか、各項目の意味、次に何を確認するとよいかを説明してください。`;
+    const result = await ai.models.generateContent({
+      model: config.GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        systemInstruction: 'あなたはCyberBoxのサイバーセキュリティ学習アシスタントです。初心者向けに日本語で簡潔に説明してください。対象は許可済みの内部演習環境 target のみです。外部サイトや第三者サーバーへの攻撃手順は案内しないでください。',
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: { summary: { type: 'STRING' }, details: { type: 'ARRAY', items: { type: 'STRING' } }, nextStep: { type: 'STRING' } },
+          required: ['summary', 'details', 'nextStep'],
+        },
+      },
+    });
+    const parsed = responseSchema.parse(JSON.parse(result.text ?? '{}'));
+    logger.info({ model: config.GEMINI_MODEL, responseTimeMs: Date.now() - started, success: true }, 'gemini request');
+    return parsed;
+  } catch (error) {
+    logger.warn({ error, model: config.GEMINI_MODEL, responseTimeMs: Date.now() - started, success: false }, 'gemini unavailable');
+    return fallback(input.command);
+  }
+}

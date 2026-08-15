@@ -1,22 +1,197 @@
-import { useCallback,useEffect,useMemo,useState,type ReactNode } from 'react';
-import { Bot,Box,ChevronRight,CircleStop,Clock3,ExternalLink,GraduationCap,Play,ShieldCheck,Sparkles,TerminalSquare } from 'lucide-react';
-import { api } from './api';import { lessons } from './lessons';import TerminalPanel from './TerminalPanel';import type { AiExplanation,LabSession } from './types';
-const formatTime=(s:number)=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-export default function App(){
- const[session,setSession]=useState<LabSession|null>(null),[selectedLesson,setSelectedLesson]=useState(lessons[0]),[secondsLeft,setSecondsLeft]=useState(3600),[busy,setBusy]=useState(false),[error,setError]=useState(''),[lastResult,setLastResult]=useState({command:'',output:''}),[explanation,setExplanation]=useState<AiExplanation|null>(null);
- useEffect(()=>{if(!session)return;const tick=()=>setSecondsLeft(Math.max(0,Math.floor((new Date(session.expiresAt).getTime()-Date.now())/1000)));tick();const timer=window.setInterval(tick,1000);return()=>clearInterval(timer)},[session]);
- const start=async()=>{setBusy(true);setError('');try{setSession(await api.startLab())}catch(e){setError(e instanceof Error?e.message:'起動に失敗しました。')}finally{setBusy(false)}};
- const stop=async()=>{if(!session)return;setBusy(true);try{await api.stopLab(session.sessionId);setSession(null);setExplanation(null)}catch(e){setError(e instanceof Error?e.message:'停止に失敗しました。')}finally{setBusy(false)}};
- const rememberOutput=useCallback((command:string,output:string)=>setLastResult({command,output}),[]);
- const explain=async()=>{if(!session||!lastResult.command)return;setBusy(true);setError('');try{setExplanation(await api.explain(session.sessionId,selectedLesson.id,lastResult.command,lastResult.output))}catch(e){setError(e instanceof Error?e.message:'AI解説を取得できませんでした。')}finally{setBusy(false)}};
- const progress=useMemo(()=>secondsLeft/36,[secondsLeft]);
- if(!session)return <main className="home"><div className="grid-noise"/><header className="home-nav"><Brand/><span className="secure-label"><ShieldCheck size={15}/> isolated learning environment</span></header><section className="hero"><div className="eyebrow"><span/> BROWSER-BASED CYBERSECURITY LABORATORY</div><h1>触れて、確かめて、<br/><em>仕組みから学ぶ。</em></h1><p>Linux、ネットワーク、Webセキュリティをブラウザだけで実践。安全に隔離された演習環境とAIの解説で、最初の一歩を支えます。</p><button className="primary large" onClick={start} disabled={busy}><Play size={18} fill="currentColor"/>{busy?'環境を準備中…':'Start Lab'}<ChevronRight size={18}/></button>{error&&<p className="error">{error}</p>}<div className="feature-row"><Feature icon={<TerminalSquare/>} title="Real Linux Terminal" text="ブラウザから本物のLinux環境へ"/><Feature icon={<Box/>} title="Isolated Containers" text="ラボごとに安全に分離"/><Feature icon={<Sparkles/>} title="Gemini Assistant" text="結果をやさしい日本語で解説"/></div></section></main>;
- return <main className="app-shell"><header className="topbar"><Brand/><div className="top-actions"><div className="timer"><Clock3 size={15}/><span>LAB TIME</span><strong>{formatTime(secondsLeft)}</strong><i style={{width:`${progress}%`}}/></div><span className="online"><b/> {session.demoMode?'DEMO':'ISOLATED'}</span><button className="stop" onClick={stop} disabled={busy}><CircleStop size={16}/> Stop Lab</button></div></header>{error&&<div className="error-bar">{error}</div>}<div className="workspace"><aside className="lessons"><div className="section-heading"><GraduationCap size={15}/> LESSONS</div>{lessons.map(lesson=><button key={lesson.id} className={selectedLesson.id===lesson.id?'lesson active':'lesson'} onClick={()=>setSelectedLesson(lesson)}><span>{String(lesson.id).padStart(2,'0')}</span><div><strong>{lesson.short}</strong><small>{lesson.title}</small></div><ChevronRight size={15}/></button>)}<div className="session-id"><span>SESSION</span><code>{session.sessionId.slice(0,12)}</code></div></aside><section className="main-grid">
- <article className="lesson-card panel"><div className="panel-title"><span><GraduationCap size={14}/> LESSON {selectedLesson.id}</span></div><div className="lesson-body"><p className="kicker">{selectedLesson.objective}</p><h2>{selectedLesson.title}</h2><p>{selectedLesson.description}</p><div className="command-chips">{selectedLesson.commands.map(c=><code key={c}>$ {c}</code>)}</div><div className="points">{selectedLesson.points.map(p=><span key={p}><i/> {p}</span>)}</div>{selectedLesson.caution&&<div className="caution">{selectedLesson.caution}</div>}</div></article>
- <article className="target panel"><div className="panel-title"><span><Box size={14}/> TARGET WEB</span><a href={`/lab/${session.sessionId}/target/`} target="_blank" rel="noreferrer"><ExternalLink size={14}/></a></div><iframe title="OWASP Juice Shop" src={`/lab/${session.sessionId}/target/`} sandbox="allow-scripts allow-forms allow-same-origin allow-popups"/></article>
- <article className="terminal panel"><div className="panel-title"><span><TerminalSquare size={14}/> TERMINAL</span><span className="shell-label">cyberbox@lab</span></div><TerminalPanel sessionId={session.sessionId} onOutput={rememberOutput}/><div className="terminal-footer"><span>{lastResult.command?`Last: ${lastResult.command}`:'コマンドを実行するとAIで解説できます'}</span><button onClick={explain} disabled={busy||!lastResult.command}><Sparkles size={14}/> Explain with Gemini</button></div></article>
- <article className="ai panel"><div className="panel-title"><span><Bot size={14}/> GEMINI AI</span><span className="ai-badge">AI</span></div><div className="ai-content">{explanation?<><h3>{explanation.summary}</h3><ul>{explanation.details.map(d=><li key={d}>{d}</li>)}</ul><div className="next"><span>NEXT STEP</span><code>{explanation.nextStep}</code></div></>:<div className="ai-empty"><Sparkles size={28}/><h3>実行結果を読み解く</h3><p>ターミナルでコマンドを実行し、<br/>「Explain with Gemini」を押してください。</p></div>}</div></article>
- </section></div></main>;
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Bot, Box, Check, ChevronRight, CircleStop, Clock3, ExternalLink, GraduationCap,
+  HelpCircle, LoaderCircle, Play, RefreshCw, ShieldCheck, Sparkles, TerminalSquare, X,
+} from 'lucide-react';
+import { api } from './api';
+import { allTasks, lessons } from './lessons';
+import { normalizeCommand, taskPassed } from './progress';
+import TerminalPanel, { type TerminalPanelHandle } from './TerminalPanel';
+import type { AiExplanation, AiStatus, LabSession, LessonTask } from './types';
+
+const PROGRESS_KEY = 'cyberbox-progress-v1';
+const TUTORIAL_KEY = 'cyberbox-tutorial-v1';
+const formatTime = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+
+type Feedback = { taskId: string; passed: boolean; message: string } | null;
+
+export default function App() {
+  const [session, setSession] = useState<LabSession | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState(lessons[0]);
+  const [secondsLeft, setSecondsLeft] = useState(3600);
+  const [busy, setBusy] = useState(false);
+  const [commandBusy, setCommandBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [lastResult, setLastResult] = useState({ command: '', output: '' });
+  const [explanation, setExplanation] = useState<AiExplanation | null>(null);
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [feedback, setFeedback] = useState<Feedback>(null);
+  const [completed, setCompleted] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(PROGRESS_KEY) || '[]')); } catch { return new Set(); }
+  });
+  const terminalRef = useRef<TerminalPanelHandle>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    const tick = () => setSecondsLeft(Math.max(0, Math.floor((new Date(session.expiresAt).getTime() - Date.now()) / 1000)));
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [session]);
+
+  useEffect(() => { localStorage.setItem(PROGRESS_KEY, JSON.stringify([...completed])); }, [completed]);
+
+  const start = async () => {
+    setBusy(true); setError('');
+    try {
+      setSession(await api.startLab());
+      setAiStatus(await api.aiStatus().catch(() => null));
+      if (!localStorage.getItem(TUTORIAL_KEY)) { setTutorialStep(0); setTutorialOpen(true); }
+    } catch (e) { setError(e instanceof Error ? e.message : 'ラボの起動に失敗しました。'); }
+    finally { setBusy(false); }
+  };
+
+  const stop = async () => {
+    if (!session) return;
+    setBusy(true);
+    try { await api.stopLab(session.sessionId); setSession(null); setExplanation(null); }
+    catch (e) { setError(e instanceof Error ? e.message : 'ラボの停止に失敗しました。'); }
+    finally { setBusy(false); }
+  };
+
+  const rememberOutput = useCallback((command: string, output: string) => {
+    setLastResult({ command, output });
+    const task = allTasks.find((candidate) => normalizeCommand(candidate.command) === normalizeCommand(command));
+    if (!task) { setFeedback(null); return; }
+    const passed = taskPassed(task, output);
+    setFeedback({ taskId: task.id, passed, message: passed ? task.successMessage : task.hint });
+    if (passed) setCompleted((current) => new Set(current).add(task.id));
+  }, []);
+
+  const runTask = (task: LessonTask) => {
+    setFeedback(null);
+    const started = terminalRef.current?.runCommand(task.command);
+    if (!started) setError(commandBusy ? '前のコマンドが完了するまでお待ちください。' : 'ターミナルの接続を確認してください。');
+    else setError('');
+  };
+
+  const explain = async () => {
+    if (!session || !lastResult.command) return;
+    setBusy(true); setError('');
+    try { setExplanation(await api.explain(session.sessionId, selectedLesson.id, lastResult.command, lastResult.output)); }
+    catch (e) { setError(e instanceof Error ? e.message : 'AI解説を取得できませんでした。'); }
+    finally { setBusy(false); }
+  };
+
+  const completedCount = completed.size;
+  const lessonDone = (lessonId: number) => lessons.find((lesson) => lesson.id === lessonId)!.tasks.every((task) => completed.has(task.id));
+
+  if (!session) return <Home busy={busy} error={error} onStart={start} />;
+
+  return <main className="app-shell">
+    <header className="topbar"><Brand/><div className="top-actions">
+      <div className="course-progress"><span>進捗 {completedCount}/{allTasks.length}</span><i><b style={{ width: `${completedCount / allTasks.length * 100}%` }}/></i></div>
+      <div className="timer"><Clock3 size={15}/><span>LAB TIME</span><strong>{formatTime(secondsLeft)}</strong><i style={{ width: `${secondsLeft / 36}%` }}/></div>
+      <button className="guide-button" onClick={() => { setTutorialStep(0); setTutorialOpen(true); }}><HelpCircle size={15}/> ガイド</button>
+      <span className="online"><b/> {session.demoMode ? 'DEMO' : 'ISOLATED'}</span>
+      <button className="stop" onClick={stop} disabled={busy}><CircleStop size={16}/> Stop Lab</button>
+    </div></header>
+    {error && <div className="error-bar">{error}<button onClick={() => setError('')} aria-label="閉じる"><X size={13}/></button></div>}
+    <div className="workspace">
+      <aside className="lessons"><div className="section-heading"><GraduationCap size={15}/> LESSONS</div>
+        {lessons.map((lesson) => <button key={lesson.id} className={selectedLesson.id === lesson.id ? 'lesson active' : 'lesson'} onClick={() => { setSelectedLesson(lesson); setFeedback(null); }}>
+          <span>{lessonDone(lesson.id) ? <Check size={12}/> : String(lesson.id).padStart(2, '0')}</span><div><strong>{lesson.short}</strong><small>{lesson.title}</small></div><ChevronRight size={15}/>
+        </button>)}
+        <div className="session-id"><span>SESSION</span><code>{session.sessionId.slice(0, 12)}</code></div>
+      </aside>
+      <section className="main-grid">
+        <article className="lesson-card panel"><div className="panel-title"><span><GraduationCap size={14}/> LESSON {selectedLesson.id}</span><span>{selectedLesson.tasks.filter((task) => completed.has(task.id)).length}/{selectedLesson.tasks.length} 完了</span></div>
+          <div className="lesson-body"><p className="kicker">{selectedLesson.objective}</p><h2>{selectedLesson.title}</h2><p>{selectedLesson.description}</p>
+            <div className="task-list">{selectedLesson.tasks.map((task) => <div className={`task-row ${completed.has(task.id) ? 'done' : ''}`} key={task.id}>
+              <span className="task-check">{completed.has(task.id) ? <Check size={13}/> : <TerminalSquare size={13}/>}</span>
+              <div><strong>{task.label}</strong><code>$ {task.command}</code></div>
+              <button onClick={() => runTask(task)} disabled={commandBusy}>{commandBusy ? <LoaderCircle className="spin" size={13}/> : <Play size={13} fill="currentColor"/>} 実行</button>
+            </div>)}</div>
+            {feedback && selectedLesson.tasks.some((task) => task.id === feedback.taskId) && <div className={`validation ${feedback.passed ? 'passed' : 'failed'}`}><strong>{feedback.passed ? '正解' : 'もう一度確認'}</strong>{feedback.message}</div>}
+            {selectedLesson.caution && <div className="caution">{selectedLesson.caution}</div>}
+          </div>
+        </article>
+        <TargetPanel sessionId={session.sessionId}/>
+        <article className="terminal panel"><div className="panel-title"><span><TerminalSquare size={14}/> TERMINAL</span><span className="shell-label">{commandBusy ? '実行中…' : 'cyberbox@lab'}</span></div>
+          <TerminalPanel ref={terminalRef} sessionId={session.sessionId} onOutput={rememberOutput} onBusyChange={setCommandBusy}/>
+          <div className="terminal-footer"><span>{lastResult.command ? `Last: ${lastResult.command}` : '上の「実行」ボタン、またはターミナルからコマンドを実行できます'}</span><button onClick={explain} disabled={busy || !lastResult.command}><Sparkles size={14}/> Geminiで解説</button></div>
+        </article>
+        <article className="ai panel"><div className="panel-title"><span><Bot size={14}/> GEMINI AI</span><span className={`ai-badge ${aiStatus?.configured ? 'ready' : ''}`}>{aiStatus?.configured ? 'READY' : '未設定'}</span></div>
+          <div className="ai-content">{explanation ? <><h3>{explanation.summary}</h3><ul>{explanation.details.map((detail) => <li key={detail}>{detail}</li>)}</ul><div className="next"><span>NEXT STEP</span><code>{explanation.nextStep}</code></div></> :
+            <div className="ai-empty"><Sparkles size={28}/><h3>実行結果を読み解く</h3><p>{aiStatus?.configured ? 'コマンドを実行して「Geminiで解説」を押してください。' : 'Gemini APIキーはまだ未設定です。ターミナルと自動判定はそのまま利用できます。'}</p></div>}
+          </div>
+        </article>
+      </section>
+    </div>
+    {tutorialOpen && <Tutorial
+      step={tutorialStep}
+      onStep={setTutorialStep}
+      onClose={() => { localStorage.setItem(TUTORIAL_KEY, 'done'); setTutorialOpen(false); }}
+    />}
+  </main>;
 }
-function Brand(){return <div className="brand"><div className="brand-mark"><span/><span/><span/></div><div><strong>CyberBox</strong><small>Browser-Based Cybersecurity Laboratory</small></div></div>}
-function Feature({icon,title,text}:{icon:ReactNode;title:string;text:string}){return <div className="feature"><span>{icon}</span><div><strong>{title}</strong><small>{text}</small></div></div>}
+
+function TargetPanel({ sessionId }: { sessionId: string }) {
+  const [ready, setReady] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [delayed, setDelayed] = useState(false);
+
+  const check = useCallback(async () => {
+    setAttempt((value) => value + 1);
+    try { const status = await api.targetStatus(sessionId); if (status.ready) { setReady(true); setDelayed(false); } }
+    catch { /* 次回のポーリングで再確認 */ }
+  }, [sessionId]);
+
+  useEffect(() => {
+    setReady(false); setAttempt(0); setDelayed(false); void check();
+    const timer = window.setInterval(() => void check(), 2500);
+    const delayTimer = window.setTimeout(() => setDelayed(true), 45000);
+    return () => { clearInterval(timer); clearTimeout(delayTimer); };
+  }, [check]);
+
+  return <article className="target panel"><div className="panel-title"><span><Box size={14}/> TARGET WEB</span><span className="target-actions">
+    {ready && <button title="再読み込み" onClick={() => setReloadKey((value) => value + 1)}><RefreshCw size={14}/></button>}
+    <a href={`/lab/${sessionId}/target/`} target="_blank" rel="noreferrer" title="別タブで開く"><ExternalLink size={14}/></a>
+  </span></div>
+    {ready ? <iframe key={reloadKey} title="OWASP Juice Shop" src={`/lab/${sessionId}/target/?view=${reloadKey}`} sandbox="allow-scripts allow-forms allow-same-origin allow-popups"/> :
+      <div className="target-loading"><LoaderCircle className="spin" size={30}/><h3>演習サイトを起動しています</h3><p>{delayed ? '通常より時間がかかっています。自動で再確認を続けています。' : '通常は10〜30秒で準備できます。このままお待ちください。'}</p><small>確認中 {attempt}回目</small>{delayed && <button onClick={() => void check()}><RefreshCw size={13}/> 今すぐ再確認</button>}</div>}
+  </article>;
+}
+
+const tutorial = [
+  { title: 'CyberBoxへようこそ', text: '5つのレッスンを順番に進め、Linuxとネットワークの基本を体験します。進捗はこのブラウザに保存されます。' },
+  { title: '「実行」を押す', text: 'レッスン内の実行ボタンを押すと、対応するコマンドが下のターミナルへ送られます。自分で入力しても構いません。' },
+  { title: '結果を自動判定', text: 'コマンドが終わると出力を自動で確認します。正解ならチェックが付き、不正解なら確認ポイントを表示します。' },
+  { title: 'TargetとGemini', text: '右上が練習用Webサイトです。準備完了まで自動で待機します。実行結果は右下のGeminiに解説させることもできます。' },
+];
+
+function Tutorial({ step, onStep, onClose }: { step: number; onStep: (value: number) => void; onClose: () => void }) {
+  const item = tutorial[step];
+  return <div className="tutorial-backdrop" role="presentation"><section className="tutorial-dialog" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+    <button className="tutorial-close" onClick={onClose} aria-label="チュートリアルを閉じる"><X size={17}/></button>
+    <div className="tutorial-icon">{step === 0 ? <GraduationCap/> : step === 1 ? <Play/> : step === 2 ? <Check/> : <Sparkles/>}</div>
+    <span>はじめてガイド {step + 1}/{tutorial.length}</span><h2 id="tutorial-title">{item.title}</h2><p>{item.text}</p>
+    <div className="tutorial-dots">{tutorial.map((_, index) => <i key={index} className={index === step ? 'active' : ''}/>)}</div>
+    <div className="tutorial-buttons">{step > 0 && <button onClick={() => onStep(step - 1)}>戻る</button>}<button className="primary" onClick={() => step === tutorial.length - 1 ? onClose() : onStep(step + 1)}>{step === tutorial.length - 1 ? 'レッスンを始める' : '次へ'}<ChevronRight size={16}/></button></div>
+  </section></div>;
+}
+
+function Home({ busy, error, onStart }: { busy: boolean; error: string; onStart: () => void }) {
+  return <main className="home"><div className="grid-noise"/><header className="home-nav"><Brand/><span className="secure-label"><ShieldCheck size={15}/> isolated learning environment</span></header><section className="hero">
+    <div className="eyebrow"><span/> BROWSER-BASED CYBERSECURITY LABORATORY</div><h1>触れて、確かめて、<br/><em>仕組みから学ぶ。</em></h1>
+    <p>Linux、ネットワーク、Webセキュリティをブラウザだけで実践。安全に隔離された演習環境と、段階的なガイドで最初の一歩を支えます。</p>
+    <button className="primary large" onClick={onStart} disabled={busy}><Play size={18} fill="currentColor"/>{busy ? '環境を準備中…' : 'Start Lab'}<ChevronRight size={18}/></button>{error && <p className="error">{error}</p>}
+    <div className="feature-row"><Feature icon={<TerminalSquare/>} title="Real Linux Terminal" text="ブラウザから本物のLinux環境へ"/><Feature icon={<Box/>} title="Isolated Containers" text="ラボごとに安全に分離"/><Feature icon={<Sparkles/>} title="Gemini Assistant" text="実行結果をやさしい日本語で解説"/></div>
+  </section></main>;
+}
+
+function Brand() { return <div className="brand"><div className="brand-mark"><span/><span/><span/></div><div><strong>CyberBox</strong><small>Browser-Based Cybersecurity Laboratory</small></div></div>; }
+function Feature({ icon, title, text }: { icon: ReactNode; title: string; text: string }) { return <div className="feature"><span>{icon}</span><div><strong>{title}</strong><small>{text}</small></div></div>; }
