@@ -20,14 +20,14 @@ steps:
     waitFor: [typecheck, test]
   - name: gcr.io/cloud-builders/docker
     id: attacker-image
-    args: [build, -t, cyberbox-attacker:${SHORT_SHA}, containers/attacker]
+    args: [build, -t, 'cyberbox-attacker:${SHORT_SHA}', containers/attacker]
   - name: gcr.io/cloud-builders/docker
     id: backend-image
-    args: [build, -f, backend/Dockerfile, -t, cyberbox-backend:${SHORT_SHA}, .]
+    args: [build, -f, backend/Dockerfile, -t, 'cyberbox-backend:${SHORT_SHA}', .]
     waitFor: [build]
   - name: gcr.io/cloud-builders/docker
     id: frontend-image
-    args: [build, -f, frontend/Dockerfile, -t, cyberbox-frontend:${SHORT_SHA}, .]
+    args: [build, -f, frontend/Dockerfile, -t, 'cyberbox-frontend:${SHORT_SHA}', .]
     waitFor: [build]
 options:
   logging: CLOUD_LOGGING_ONLY
