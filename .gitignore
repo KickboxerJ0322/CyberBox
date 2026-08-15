@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.log
+coverage/
+.vite/
+.idea/
+.vscode/
+backend/data/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts

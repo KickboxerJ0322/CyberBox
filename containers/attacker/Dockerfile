@@ -1,0 +1,13 @@
+FROM debian:bookworm-slim
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash curl wget iputils-ping iproute2 dnsutils nmap python3 python3-pip \
+    git netcat-openbsd openssl procps ca-certificates less nano \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash cyberbox \
+    && printf '\nexport PS1="\\[\\e[32m\\]cyberbox@lab\\[\\e[0m\\]:\\[\\e[34m\\]\\w\\[\\e[0m\\]$ "\n' >> /home/cyberbox/.bashrc \
+    && printf 'CyberBox isolated training container. Only inspect the host named target.\n' > /home/cyberbox/README.txt \
+    && chown -R cyberbox:cyberbox /home/cyberbox
+USER cyberbox
+WORKDIR /home/cyberbox
+CMD ["sleep", "infinity"]

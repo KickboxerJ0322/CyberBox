@@ -1,0 +1,7 @@
+services:
+  backend:
+    environment:
+      DEMO_MODE: "true"
+    depends_on: []
+  docker-proxy:
+    profiles: [docker]

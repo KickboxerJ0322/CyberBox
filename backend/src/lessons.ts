@@ -1,0 +1,1 @@
+export const lessons=[{id:1,title:'Linux 基本操作',description:'pwd、ls、cd、cat を使った基本操作'},{id:2,title:'ネットワーク確認',description:'IPアドレス、経路、ラボ内通信の確認'},{id:3,title:'nmap 基本',description:'TCPポートとサービスの確認'},{id:4,title:'HTTP 確認',description:'HTTPステータス、ヘッダー、HTMLの確認'},{id:5,title:'サービス確認',description:'サービスとバージョンの検出'}] as const;

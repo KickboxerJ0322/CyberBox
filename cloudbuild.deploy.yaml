@@ -1,0 +1,18 @@
+substitutions:
+  _ZONE: asia-northeast1-b
+  _INSTANCE: cyberbox
+steps:
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: deploy-to-cyberbox-vm
+    entrypoint: gcloud
+    args:
+      - compute
+      - ssh
+      - ${_INSTANCE}
+      - --zone=${_ZONE}
+      - --tunnel-through-iap
+      - --quiet
+      - --command=cd /opt/cyberbox && sudo git fetch origin main && sudo git checkout main && sudo git reset --hard origin/main && sudo docker compose --profile images build && sudo docker compose pull target-image docker-proxy && sudo docker compose up -d --build --remove-orphans
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1800s

@@ -1,0 +1,3 @@
+import type { AiExplanation,LabSession } from './types';
+async function request<T>(path:string,init?:RequestInit):Promise<T>{const response=await fetch(path,{...init,headers:{'Content-Type':'application/json',...init?.headers}});const payload=await response.json().catch(()=>({}));if(!response.ok)throw new Error(payload.error||'通信に失敗しました。');return payload as T}
+export const api={startLab:()=>request<LabSession>('/api/labs',{method:'POST'}),stopLab:(id:string)=>request<{ok:boolean}>(`/api/labs/${id}`,{method:'DELETE'}),explain:(id:string,lessonId:number,command:string,output:string)=>request<AiExplanation>(`/api/labs/${id}/explain`,{method:'POST',body:JSON.stringify({lessonId,command,output})})};

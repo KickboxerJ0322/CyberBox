@@ -1,0 +1,34 @@
+steps:
+  - name: node:22-bookworm-slim
+    id: install
+    entrypoint: npm
+    args: [ci]
+  - name: node:22-bookworm-slim
+    id: typecheck
+    entrypoint: npm
+    args: [run, typecheck]
+    waitFor: [install]
+  - name: node:22-bookworm-slim
+    id: test
+    entrypoint: npm
+    args: [test]
+    waitFor: [install]
+  - name: node:22-bookworm-slim
+    id: build
+    entrypoint: npm
+    args: [run, build]
+    waitFor: [typecheck, test]
+  - name: gcr.io/cloud-builders/docker
+    id: attacker-image
+    args: [build, -t, cyberbox-attacker:${SHORT_SHA}, containers/attacker]
+  - name: gcr.io/cloud-builders/docker
+    id: backend-image
+    args: [build, -f, backend/Dockerfile, -t, cyberbox-backend:${SHORT_SHA}, .]
+    waitFor: [build]
+  - name: gcr.io/cloud-builders/docker
+    id: frontend-image
+    args: [build, -f, frontend/Dockerfile, -t, cyberbox-frontend:${SHORT_SHA}, .]
+    waitFor: [build]
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1800s
