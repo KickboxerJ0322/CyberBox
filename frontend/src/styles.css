@@ -8,3 +8,4 @@
 @media(max-width:1050px){.course-progress{display:none}.top-actions{gap:8px}.guide-button{font-size:0}.guide-button svg{margin:0}}
 @media(max-width:900px){.main-grid{grid-template-rows:none}.task-row{padding:9px}.lesson>span{display:none}.course-progress{display:block}.target{height:380px}.target-loading{min-height:300px}}
 @media(max-width:560px){.course-progress{display:none}.guide-button{display:none}.tutorial-dialog{padding:26px 22px}.task-row{grid-template-columns:22px 1fr}.task-row button{grid-column:2;justify-self:start}.timer{padding:0 7px}}
+.terminal-footer>span{min-width:0}.terminal-footer button{flex-shrink:0}.ai-explain-button{margin:14px auto 0;border:1px solid #28705c;background:#12352d;color:#6fe8c5;border-radius:5px;padding:8px 12px;display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px}.ai-explain-button:disabled{opacity:.4;cursor:not-allowed}

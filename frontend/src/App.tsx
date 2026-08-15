@@ -125,7 +125,7 @@ export default function App() {
         </article>
         <article className="ai panel"><div className="panel-title"><span><Bot size={14}/> GEMINI AI</span><span className={`ai-badge ${aiStatus?.configured ? 'ready' : ''}`}>{aiStatus?.configured ? 'READY' : '未設定'}</span></div>
           <div className="ai-content">{explanation ? <><h3>{explanation.summary}</h3><ul>{explanation.details.map((detail) => <li key={detail}>{detail}</li>)}</ul><div className="next"><span>NEXT STEP</span><code>{explanation.nextStep}</code></div></> :
-            <div className="ai-empty"><Sparkles size={28}/><h3>実行結果を読み解く</h3><p>{aiStatus?.configured ? 'コマンドを実行して「Geminiで解説」を押してください。' : 'Gemini APIキーはまだ未設定です。ターミナルと自動判定はそのまま利用できます。'}</p></div>}
+            <div className="ai-empty"><Sparkles size={28}/><h3>実行結果を読み解く</h3><p>{aiStatus?.configured ? 'APIキーは認証済みです。コマンド実行後、下のボタンを押すと解説を生成します。' : 'Gemini APIキーはまだ未設定です。ターミナルと自動判定はそのまま利用できます。'}</p><button className="ai-explain-button" onClick={explain} disabled={busy || !lastResult.command || !aiStatus?.configured}><Sparkles size={14}/> Geminiで解説</button></div>}
           </div>
         </article>
       </section>
@@ -161,7 +161,15 @@ function TargetPanel({ sessionId }: { sessionId: string }) {
     {ready && <button title="再読み込み" onClick={() => setReloadKey((value) => value + 1)}><RefreshCw size={14}/></button>}
     <a href={`/lab/${sessionId}/target/`} target="_blank" rel="noreferrer" title="別タブで開く"><ExternalLink size={14}/></a>
   </span></div>
-    {ready ? <iframe key={reloadKey} title="OWASP Juice Shop" src={`/lab/${sessionId}/target/?view=${reloadKey}`} sandbox="allow-scripts allow-forms allow-same-origin allow-popups"/> :
+    {ready ? <iframe key={reloadKey} title="OWASP Juice Shop" src={`/lab/${sessionId}/target/?view=${reloadKey}`} sandbox="allow-scripts allow-forms allow-same-origin allow-popups" onLoad={(event) => {
+      try {
+        const body = event.currentTarget.contentDocument?.body?.innerText || '';
+        if (/502 Bad Gateway|演習サイトを準備しています/.test(body)) {
+          setReady(false);
+          window.setTimeout(() => void check(), 1000);
+        }
+      } catch { /* 同一オリジンでない場合は状態APIのポーリングに任せる */ }
+    }}/> :
       <div className="target-loading"><LoaderCircle className="spin" size={30}/><h3>演習サイトを起動しています</h3><p>{delayed ? '通常より時間がかかっています。自動で再確認を続けています。' : '通常は10〜30秒で準備できます。このままお待ちください。'}</p><small>確認中 {attempt}回目</small>{delayed && <button onClick={() => void check()}><RefreshCw size={13}/> 今すぐ再確認</button>}</div>}
   </article>;
 }
