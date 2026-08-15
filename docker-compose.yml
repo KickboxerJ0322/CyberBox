@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
     networks: [control]
     read_only: true
-    tmpfs: [/run]
+    tmpfs: [/run, /usr/local/etc/haproxy]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
   attacker-image:
