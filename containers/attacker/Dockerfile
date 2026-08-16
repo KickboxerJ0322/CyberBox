@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash curl wget iputils-ping iproute2 dnsutils nmap python3 \
     git netcat-openbsd openssl procps ca-certificates less nano jq \
     gobuster nikto sqlmap dirb \
+    && setcap -r /usr/lib/nmap/nmap \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /bin/bash cyberbox \
