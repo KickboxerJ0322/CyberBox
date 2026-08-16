@@ -64,6 +64,7 @@ describe('CyberBox API', () => {
       const response = await request(createApp(manager)).get(`/lab/${id}/target/`);
       expect(response.status).toBe(200);
       expect(Boolean(response.headers['content-length'] && response.headers['transfer-encoding'])).toBe(false);
+      expect(response.headers['content-security-policy']).toBeUndefined();
       expect(response.text).toContain(`<base href="/lab/${id}/target/">`);
     } finally {
       await new Promise<void>((resolve, reject) => upstream.close((error) => error ? reject(error) : resolve()));

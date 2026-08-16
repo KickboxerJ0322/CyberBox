@@ -72,6 +72,9 @@ export function createApp(manager: LabManager) {
 
   app.use('/lab/:id/target', async (req, res, next) => {
     try {
+      // The target is an isolated training application with its own runtime needs.
+      // Inheriting the parent CSP upgrades its HTTP assets to HTTPS and leaves the iframe blank.
+      res.removeHeader('Content-Security-Policy');
       const session = validSession(manager, req.params.id);
       const target = manager.target(session.sessionId);
       if (!target) return targetStartingPage(res);
