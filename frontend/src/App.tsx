@@ -62,12 +62,18 @@ export default function App() {
   };
 
   const rememberOutput = useCallback((command: string, output: string) => {
+    setExplanation(null);
     setLastResult({ command, output });
     const task = allTasks.find((candidate) => normalizeCommand(candidate.command) === normalizeCommand(command));
     if (!task) { setFeedback(null); return; }
     const passed = taskPassed(task, output);
     setFeedback({ taskId: task.id, passed, message: passed ? task.successMessage : task.hint });
     if (passed) setCompleted((current) => new Set(current).add(task.id));
+  }, []);
+
+  const handleCommandBusy = useCallback((running: boolean) => {
+    setCommandBusy(running);
+    if (running) setExplanation(null);
   }, []);
 
   const runTask = (task: LessonTask) => {
@@ -120,10 +126,10 @@ export default function App() {
         </article>
         <TargetPanel sessionId={session.sessionId}/>
         <article className="terminal panel"><div className="panel-title"><span><TerminalSquare size={14}/> TERMINAL</span><span className="shell-label">{commandBusy ? '実行中…' : 'cyberbox@lab'}</span></div>
-          <TerminalPanel ref={terminalRef} sessionId={session.sessionId} onOutput={rememberOutput} onBusyChange={setCommandBusy}/>
+          <TerminalPanel ref={terminalRef} sessionId={session.sessionId} onOutput={rememberOutput} onBusyChange={handleCommandBusy}/>
           <div className="terminal-footer"><span>{lastResult.command ? `Last: ${lastResult.command}` : '上の「実行」ボタン、またはターミナルからコマンドを実行できます'}</span><button onClick={explain} disabled={busy || !lastResult.command}><Sparkles size={14}/> Geminiで解説</button></div>
         </article>
-        <article className="ai panel"><div className="panel-title"><span><Bot size={14}/> GEMINI AI</span><span className={`ai-badge ${aiStatus?.configured ? 'ready' : ''}`}>{aiStatus?.configured ? 'READY' : '未設定'}</span></div>
+        <article className="ai panel"><div className="panel-title"><span><Bot size={14}/> GEMINI AI</span><span className="ai-panel-actions">{explanation && <button className="ai-clear" onClick={() => setExplanation(null)}><X size={12}/> 閉じる</button>}<span className={`ai-badge ${aiStatus?.configured ? 'ready' : ''}`}>{aiStatus?.configured ? 'READY' : '未設定'}</span></span></div>
           <div className="ai-content">{explanation ? <><h3>{explanation.summary}</h3><ul>{explanation.details.map((detail) => <li key={detail}>{detail}</li>)}</ul><div className="next"><span>NEXT STEP</span><code>{explanation.nextStep}</code></div></> :
             <div className="ai-empty"><Sparkles size={28}/><h3>実行結果を読み解く</h3><p>{aiStatus?.configured ? 'APIキーは認証済みです。コマンド実行後、下のボタンを押すと解説を生成します。' : 'Gemini APIキーはまだ未設定です。ターミナルと自動判定はそのまま利用できます。'}</p><button className="ai-explain-button" onClick={explain} disabled={busy || !lastResult.command || !aiStatus?.configured}><Sparkles size={14}/> Geminiで解説</button></div>}
           </div>

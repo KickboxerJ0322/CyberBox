@@ -155,11 +155,13 @@ function proxyTarget(req: Request, res: Response, target: { host: string; port: 
   const path = req.originalUrl.slice(prefix.length) || '/';
   const headers = { ...req.headers, host: `${target.host}:${target.port}` };
   delete headers['content-length'];
+  delete headers['accept-encoding'];
   const upstream = http.request({ hostname: target.host, port: target.port, path, method: req.method, headers }, (response) => {
     res.status(response.statusCode ?? 502);
     const html = response.headers['content-type']?.includes('text/html');
+    const blockedHeaders = ['content-security-policy', 'x-frame-options', 'content-length', 'transfer-encoding', 'connection', 'keep-alive', 'upgrade'];
     for (const [key, value] of Object.entries(response.headers)) {
-      if (value !== undefined && !['content-security-policy', 'x-frame-options', 'content-length'].includes(key)) res.setHeader(key, value);
+      if (value !== undefined && !blockedHeaders.includes(key) && !(html && key === 'content-encoding')) res.setHeader(key, value);
     }
     if (html) {
       const chunks: Buffer[] = [];
