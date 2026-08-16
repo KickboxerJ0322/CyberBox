@@ -7,7 +7,7 @@ import { api } from './api';
 import { allTasks, lessons } from './lessons';
 import { normalizeCommand, taskPassed } from './progress';
 import TerminalPanel, { type TerminalPanelHandle } from './TerminalPanel';
-import type { AiExplanation, AiStatus, LabSession, LessonTask } from './types';
+import type { AiExplanation, AiStatus, AssistantReply, LabSession, LessonTask } from './types';
 
 const PROGRESS_KEY = 'cyberbox-progress-v1';
 const TUTORIAL_KEY = 'cyberbox-tutorial-v1';
@@ -24,6 +24,8 @@ export default function App() {
   const [error, setError] = useState('');
   const [lastResult, setLastResult] = useState({ command: '', output: '' });
   const [explanation, setExplanation] = useState<AiExplanation | null>(null);
+  const [assistantMessage, setAssistantMessage] = useState('');
+  const [assistantReply, setAssistantReply] = useState<AssistantReply | null>(null);
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
@@ -91,6 +93,21 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const askAssistant = async () => {
+    if (!session || !assistantMessage.trim()) return;
+    setBusy(true); setError(''); setAssistantReply(null);
+    try { setAssistantReply(await api.askAssistant(session.sessionId, selectedLesson.id, assistantMessage.trim())); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Geminiへの相談に失敗しました。'); }
+    finally { setBusy(false); }
+  };
+
+  const runAiCommand = (command: string) => {
+    if (!window.confirm(`安全検査を通過した次のコマンドを、隔離ターミナルで実行しますか？\n\n${command}`)) return;
+    const started = terminalRef.current?.runCommand(command);
+    if (!started) setError(commandBusy ? '前のコマンドが完了するまでお待ちください。' : 'ターミナルの接続を確認してください。');
+    else setError('');
+  };
+
   const completedCount = completed.size;
   const lessonDone = (lessonId: number) => lessons.find((lesson) => lesson.id === lessonId)!.tasks.every((task) => completed.has(task.id));
 
@@ -129,9 +146,23 @@ export default function App() {
           <TerminalPanel ref={terminalRef} sessionId={session.sessionId} onOutput={rememberOutput} onBusyChange={handleCommandBusy}/>
           <div className="terminal-footer"><span>{lastResult.command ? `Last: ${lastResult.command}` : '上の「実行」ボタン、またはターミナルからコマンドを実行できます'}</span><button onClick={explain} disabled={busy || !lastResult.command}><Sparkles size={14}/> Geminiで解説</button></div>
         </article>
-        <article className="ai panel"><div className="panel-title"><span><Bot size={14}/> GEMINI AI</span><span className="ai-panel-actions">{explanation && <button className="ai-clear" onClick={() => setExplanation(null)}><X size={12}/> 閉じる</button>}<span className={`ai-badge ${aiStatus?.configured ? 'ready' : ''}`}>{aiStatus?.configured ? 'READY' : '未設定'}</span></span></div>
-          <div className="ai-content">{explanation ? <><h3>{explanation.summary}</h3><ul>{explanation.details.map((detail) => <li key={detail}>{detail}</li>)}</ul><div className="next"><span>NEXT STEP</span><code>{explanation.nextStep}</code></div></> :
-            <div className="ai-empty"><Sparkles size={28}/><h3>実行結果を読み解く</h3><p>{aiStatus?.configured ? 'APIキーは認証済みです。コマンド実行後、下のボタンを押すと解説を生成します。' : 'Gemini APIキーはまだ未設定です。ターミナルと自動判定はそのまま利用できます。'}</p><button className="ai-explain-button" onClick={explain} disabled={busy || !lastResult.command || !aiStatus?.configured}><Sparkles size={14}/> Geminiで解説</button></div>}
+        <article className="ai panel"><div className="panel-title"><span><Bot size={14}/> GEMINI CHAT</span><span className="ai-panel-actions"><span className={`ai-badge ${aiStatus?.configured ? 'ready' : ''}`}>{aiStatus?.configured ? 'READY' : '固定ガイド'}</span></span></div>
+          <div className="ai-content ai-chat">
+            <form className="ai-chat-form" onSubmit={(event) => { event.preventDefault(); void askAssistant(); }}>
+              <textarea value={assistantMessage} onChange={(event) => setAssistantMessage(event.target.value)} maxLength={1200} placeholder="例：Juice Shopのログイン画面でSQLインジェクションを試すには？"/>
+              <button type="submit" disabled={busy || !assistantMessage.trim()}>{busy ? <LoaderCircle className="spin" size={14}/> : <Sparkles size={14}/>} 相談する</button>
+            </form>
+            {assistantReply && <section className="assistant-reply">
+              <div className={`answer-source ${assistantReply.source}`}>{assistantReply.source === 'gemini' ? `AI生成・${assistantReply.model}` : '固定回答（AI未使用）'}</div>
+              <p>{assistantReply.summary}</p>
+              {assistantReply.commands.map((proposal, index) => <div className={`command-proposal ${proposal.safe ? 'safe' : 'blocked'}`} key={`${proposal.command}-${index}`}>
+                <div><span>{proposal.safe ? '安全検査 OK' : '安全検査 BLOCK'}</span><code>{proposal.command}</code><p>{proposal.explanation}</p>{proposal.blockedReason && <small>{proposal.blockedReason}</small>}</div>
+                <button disabled={!proposal.safe || commandBusy} onClick={() => runAiCommand(proposal.command)}><Play size={13}/> 確認して実行</button>
+              </div>)}
+              <small className="safety-note">{assistantReply.safetyNote}</small>
+              <button className="ai-clear" onClick={() => { setAssistantReply(null); setAssistantMessage(''); }}><X size={12}/> 新しく相談する</button>
+            </section>}
+            {explanation && <section className="execution-explanation"><div className={`answer-source ${explanation.source}`}>{explanation.source === 'gemini' ? `AI生成・${explanation.model}` : '固定回答（AI未使用）'}</div><h3>{explanation.summary}</h3><ul>{explanation.details.map((detail) => <li key={detail}>{detail}</li>)}</ul><div className="next"><span>NEXT STEP</span><code>{explanation.nextStep}</code></div><button className="ai-clear" onClick={() => setExplanation(null)}><X size={12}/> 解説を閉じる</button></section>}
           </div>
         </article>
       </section>
@@ -181,10 +212,10 @@ function TargetPanel({ sessionId }: { sessionId: string }) {
 }
 
 const tutorial = [
-  { title: 'CyberBoxへようこそ', text: '5つのレッスンを順番に進め、Linuxとネットワークの基本を体験します。進捗はこのブラウザに保存されます。' },
+  { title: 'CyberRoomへようこそ', text: '7つのレッスンを順番に進め、Kali LinuxからJuice Shopへの安全な実攻撃を体験します。進捗はこのブラウザに保存されます。' },
   { title: '「実行」を押す', text: 'レッスン内の実行ボタンを押すと、対応するコマンドが下のターミナルへ送られます。自分で入力しても構いません。' },
   { title: '結果を自動判定', text: 'コマンドが終わると出力を自動で確認します。正解ならチェックが付き、不正解なら確認ポイントを表示します。' },
-  { title: 'TargetとGemini', text: '右上が練習用Webサイトです。準備完了まで自動で待機します。実行結果は右下のGeminiに解説させることもできます。' },
+  { title: 'TargetとGemini', text: '右上が演習用Juice Shopです。右下では自然言語で相談でき、AI提案コマンドは安全検査と確認後にだけ実行できます。' },
 ];
 
 function Tutorial({ step, onStep, onClose }: { step: number; onStep: (value: number) => void; onClose: () => void }) {
@@ -203,9 +234,9 @@ function Home({ busy, error, onStart }: { busy: boolean; error: string; onStart:
     <div className="eyebrow"><span/> BROWSER-BASED CYBERSECURITY LABORATORY</div><h1>触れて、確かめて、<br/><em>仕組みから学ぶ。</em></h1>
     <p>Linux、ネットワーク、Webセキュリティをブラウザだけで実践。安全に隔離された演習環境と、段階的なガイドで最初の一歩を支えます。</p>
     <button className="primary large" onClick={onStart} disabled={busy}><Play size={18} fill="currentColor"/>{busy ? '環境を準備中…' : 'Start Lab'}<ChevronRight size={18}/></button>{error && <p className="error">{error}</p>}
-    <div className="feature-row"><Feature icon={<TerminalSquare/>} title="Real Linux Terminal" text="ブラウザから本物のLinux環境へ"/><Feature icon={<Box/>} title="Isolated Containers" text="ラボごとに安全に分離"/><Feature icon={<Sparkles/>} title="Gemini Assistant" text="実行結果をやさしい日本語で解説"/></div>
+    <div className="feature-row"><Feature icon={<TerminalSquare/>} title="Kali Linux Terminal" text="ブラウザから隔離Kali環境へ"/><Feature icon={<Box/>} title="OWASP Juice Shop" text="実際の脆弱アプリで演習"/><Feature icon={<Sparkles/>} title="Gemini Assistant" text="自然言語の相談と安全な実行支援"/></div>
   </section></main>;
 }
 
-function Brand() { return <div className="brand"><div className="brand-mark"><span/><span/><span/></div><div><strong>CyberBox</strong><small>Browser-Based Cybersecurity Laboratory</small></div></div>; }
+function Brand() { return <div className="brand"><div className="brand-mark"><span/><span/><span/></div><div><strong>CyberRoom</strong><small>Browser-Based Cybersecurity Laboratory</small></div></div>; }
 function Feature({ icon, title, text }: { icon: ReactNode; title: string; text: string }) { return <div className="feature"><span>{icon}</span><div><strong>{title}</strong><small>{text}</small></div></div>; }

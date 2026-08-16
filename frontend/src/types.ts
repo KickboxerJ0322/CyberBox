@@ -6,7 +6,10 @@ export type LabSession = {
   demoMode?: boolean;
 };
 
-export type AiExplanation = { summary: string; details: string[]; nextStep: string };
+export type AnswerSource = 'gemini' | 'fallback';
+export type AiExplanation = { summary: string; details: string[]; nextStep: string; source: AnswerSource; model: string };
+export type AssistantCommand = { command: string; explanation: string; safe: boolean; blockedReason?: string };
+export type AssistantReply = { summary: string; commands: AssistantCommand[]; safetyNote: string; source: AnswerSource; model: string };
 
 export type LessonTask = {
   id: string;

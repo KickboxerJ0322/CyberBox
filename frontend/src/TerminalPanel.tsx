@@ -109,7 +109,7 @@ const TerminalPanel = forwardRef<TerminalPanelHandle, Props>(function TerminalPa
     };
   }, [sessionId, onOutput, onBusyChange]);
 
-  return <div className="terminal-host" ref={host} aria-label="CyberBox terminal" />;
+  return <div className="terminal-host" ref={host} aria-label="CyberRoom terminal" />;
 });
 
 export default TerminalPanel;

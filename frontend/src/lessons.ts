@@ -2,50 +2,54 @@ import type { Lesson } from './types';
 
 export const lessons: Lesson[] = [
   {
-    id: 1, short: 'Linux', title: 'Linux 基本操作', objective: '現在地とファイル、OS情報を確認する',
-    description: 'まずは安全な読み取りコマンドを実行し、Linuxターミナルの基本に慣れましょう。',
+    id: 1, short: 'Kali', title: 'Kali Linux 基本操作', objective: '攻撃側コンテナがKali Linuxであることを確認する',
+    description: '安全な読み取りコマンドを実行し、ターミナルとKali環境の基本を確認します。',
     tasks: [
-      { id: 'linux-pwd', command: 'pwd', label: '現在の場所を確認', expected: ['/home/cyberbox'], successMessage: 'ホームディレクトリを確認できました。', hint: '/home/cyberbox と表示されるか確認しましょう。' },
-      { id: 'linux-ls', command: 'ls -la', label: 'ファイル一覧を確認', expected: ['README.txt'], successMessage: '隠しファイルを含む一覧を確認できました。', hint: 'README.txt が表示されるか確認しましょう。' },
-      { id: 'linux-os', command: 'cat /etc/os-release', label: 'OS情報を確認', expected: ['Debian GNU/Linux'], successMessage: 'OSの種類を確認できました。', hint: 'PRETTY_NAME の行に注目してください。' },
-    ],
-    points: ['現在のディレクトリ', 'ファイル一覧', 'OS情報'],
+      { id: 'kali-whoami', command: 'whoami', label: '実行ユーザーを確認', expected: ['cyberbox'], successMessage: '一般ユーザーで動作していることを確認できました。', hint: '出力に cyberbox が含まれるか確認してください。' },
+      { id: 'kali-ls', command: 'ls -la', label: 'ホームのファイルを確認', expected: ['README.txt'], successMessage: 'Kaliコンテナの案内ファイルを確認できました。', hint: 'README.txt が表示されるか確認してください。' },
+      { id: 'kali-os', command: 'cat /etc/os-release', label: 'Kali OS情報を確認', expected: ['Kali GNU/Linux'], successMessage: '攻撃側がKali Linuxであることを確認できました。', hint: 'PRETTY_NAMEまたはNAMEにKaliがあるか確認してください。' },
+    ], points: ['Kali Linux', '一般ユーザー', '隔離コンテナ'],
   },
   {
-    id: 2, short: 'Network', title: 'ネットワーク確認', objective: '隔離されたラボ内の通信経路を理解する',
-    description: 'IPアドレス、ルーティング、名前解決を確認し、targetだけに到達できることを確かめます。',
+    id: 2, short: 'Network', title: 'ネットワーク確認', objective: '隔離されたラボ内でtargetだけに到達する',
+    description: 'IPアドレス、経路、名前解決を確認し、攻撃対象targetへの接続を確かめます。',
     tasks: [
-      { id: 'network-ip', command: 'ip addr', label: 'IPアドレスを確認', expected: ['inet ', 'eth0'], successMessage: 'ラボ内のIPアドレスを確認できました。', hint: 'eth0 の inet 行を探してください。' },
-      { id: 'network-route', command: 'ip route', label: '通信経路を確認', expected: ['dev eth0'], successMessage: 'ラボ内の経路を確認できました。', hint: 'dev eth0 を含む経路を確認してください。' },
-      { id: 'network-ping', command: 'ping -c 3 target', label: 'targetへの到達確認', expected: ['0% packet loss'], successMessage: 'targetへの疎通を確認できました。', hint: 'packet loss の値を確認してください。' },
-    ],
-    points: ['IPアドレス', 'ルーティング', '内部DNS'],
-    caution: '調査対象はラボ内の target のみです。外部ホストには実行しないでください。',
+      { id: 'network-ip', command: 'ip addr', label: 'IPアドレスを確認', expected: ['inet ', 'eth0'], successMessage: 'ラボ内IPを確認できました。', hint: 'eth0のinet行を探してください。' },
+      { id: 'network-route', command: 'ip route', label: '通信経路を確認', expected: ['dev eth0'], successMessage: 'ラボ内の経路を確認できました。', hint: 'dev eth0を含む行を探してください。' },
+      { id: 'network-ping', command: 'ping -c 3 target', label: 'targetへの到達を確認', expected: ['0% packet loss'], successMessage: 'targetへの到達を確認できました。', hint: 'packet lossの値を確認してください。' },
+    ], points: ['IPアドレス', 'ルーティング', '内部DNS'], caution: '対象はラボ内のtargetだけです。外部ホストには実行しないでください。',
   },
   {
-    id: 3, short: 'nmap', title: 'nmap 基本', objective: 'targetで待ち受けるポートを発見する',
-    description: '短時間のポートスキャンから、TCPポートの状態とサービスを読み取ります。',
-    tasks: [
-      { id: 'nmap-port', command: 'nmap -p 3000 target', label: '3000番ポートを確認', expected: ['3000/tcp', 'open'], successMessage: 'Webサービスのポートを発見できました。', hint: '3000/tcp の STATE が open か確認しましょう。' },
-    ],
-    points: ['TCP', 'port', 'open / closed', 'service'], caution: 'スキャン対象は target のみに固定してください。',
+    id: 3, short: 'Recon', title: 'サービス偵察', objective: 'Juice Shopが待ち受けるポートをKaliから発見する',
+    description: 'nmapのバージョン検出で、target上のWebサービスを調べます。',
+    tasks: [{ id: 'recon-nmap', command: 'nmap -sV -p 3000 target', label: '3000番ポートを調査', expected: ['3000/tcp', 'open', 'http'], successMessage: 'Juice ShopのWebポートを発見できました。', hint: '3000/tcpのSTATEとSERVICEを確認してください。' }],
+    points: ['nmap', 'TCP port', 'service detection'], caution: 'スキャン対象はtargetに固定されています。',
   },
   {
-    id: 4, short: 'HTTP', title: 'HTTP 確認', objective: 'Webサーバーの応答をターミナルから観察する',
-    description: 'curlでステータス、ヘッダー、HTML本文を取得します。',
+    id: 4, short: 'HTTP/API', title: 'HTTPとAPI調査', objective: 'Webアプリの応答と公開APIを観察する',
+    description: 'curlを使い、ブラウザ画面の裏でどのようなHTTP応答が返るか確認します。',
     tasks: [
       { id: 'http-head', command: 'curl -I http://target:3000', label: 'HTTPヘッダーを確認', expected: ['HTTP/1.1 200'], successMessage: '正常なHTTP応答を確認できました。', hint: '先頭のHTTPステータス行を確認してください。' },
-      { id: 'http-body', command: 'curl http://target:3000', label: 'HTML本文を確認', expected: ['<!doctype html'], successMessage: 'WebページのHTMLを取得できました。', hint: '<!doctype html から始まる出力を探してください。' },
-    ],
-    points: ['HTTP', 'Status Code', 'Header', 'HTML'],
+      { id: 'http-config', command: 'curl -s http://target:3000/rest/admin/application-configuration', label: '公開設定APIを確認', expected: ['application', 'config'], successMessage: 'Juice Shopの設定APIを取得できました。', hint: 'JSON内のapplicationやconfigを探してください。' },
+    ], points: ['HTTP', 'Status Code', 'REST API', 'JSON'],
   },
   {
-    id: 5, short: 'Service', title: 'サービス確認', objective: 'サービスとバージョンの手掛かりを得る',
-    description: 'nmapのサービス検出を使い、開いているポートの用途を詳しく確認します。',
-    tasks: [
-      { id: 'service-version', command: 'nmap -sV -p 3000 target', label: 'サービスを識別', expected: ['3000/tcp', 'open', 'http'], successMessage: '3000番ポートのサービスを識別できました。', hint: '3000/tcp のSERVICE列を確認してください。' },
-    ],
-    points: ['Service Detection', 'Version Detection', '結果の確かめ方'], caution: '検出結果には推測も含まれます。curlの結果と組み合わせて判断しましょう。',
+    id: 5, short: 'Discovery', title: '公開ファイル探索', objective: 'Webサーバーに露出したディレクトリを発見する',
+    description: 'Kaliに入っているdirbの小さな辞書を使い、Juice Shopの公開パスを調べます。',
+    tasks: [{ id: 'discover-ftp', command: 'curl -s http://target:3000/ftp/', label: '公開FTP一覧を確認', expected: ['acquisitions.md'], successMessage: '公開されている機密ファイル名を発見しました。', hint: '一覧からacquisitions.mdを探してください。' }],
+    points: ['Content Discovery', '情報露出', '攻撃面'], caution: '実環境では、公開ファイルの取得にも明示的な許可が必要です。',
+  },
+  {
+    id: 6, short: 'SQLi', title: 'SQLインジェクション', objective: '入力値がSQLとして解釈される危険を体験する',
+    description: '隔離されたJuice ShopのログインAPIに検証用ペイロードを送り、認証回避が起きることを確認します。',
+    tasks: [{ id: 'sqli-login', command: `curl -s -X POST http://target:3000/rest/user/login -H "Content-Type: application/json" --data "{\\"email\\":\\"admin' OR 1=1--\\",\\"password\\":\\"x\\"}"`, label: 'ログイン認証回避を検証', expected: ['authentication', 'token'], successMessage: 'SQLインジェクションによる認証回避を確認しました。', hint: 'JSONレスポンスにauthenticationとtokenが含まれるか確認してください。' }],
+    points: ['SQL Injection', '認証回避', '入力のパラメータ化'], caution: 'このペイロードはCyberRoom内のJuice Shopだけで使用してください。',
+  },
+  {
+    id: 7, short: 'Exposure', title: '機密情報の露出', objective: '公開された文書を読み、情報漏えいの影響を理解する',
+    description: '前のレッスンで発見した文書を取得し、公開すべきでない情報を確認します。',
+    tasks: [{ id: 'exposure-file', command: 'curl -s http://target:3000/ftp/acquisitions.md', label: '露出した文書を確認', expected: ['acquisition'], successMessage: '公開ディレクトリから文書を取得できることを確認しました。', hint: '文書内のacquisitionという語を確認してください。' }],
+    points: ['Sensitive Data Exposure', '公開範囲', 'アクセス制御'], caution: '取得対象は演習用Juice Shop内のファイルだけです。',
   },
 ];
 

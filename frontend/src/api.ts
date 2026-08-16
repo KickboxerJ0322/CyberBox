@@ -1,4 +1,4 @@
-import type { AiExplanation, AiStatus, LabSession, TargetStatus } from './types';
+import type { AiExplanation, AiStatus, AssistantReply, LabSession, TargetStatus } from './types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -19,5 +19,10 @@ export const api = {
     request<AiExplanation>(`/api/labs/${id}/explain`, {
       method: 'POST',
       body: JSON.stringify({ lessonId, command, output }),
+    }),
+  askAssistant: (id: string, lessonId: number, message: string) =>
+    request<AssistantReply>(`/api/labs/${id}/assistant`, {
+      method: 'POST',
+      body: JSON.stringify({ lessonId, message }),
     }),
 };

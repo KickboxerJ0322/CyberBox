@@ -7,7 +7,7 @@ import { pinoHttp } from 'pino-http';
 import { WebSocketServer } from 'ws';
 import { config } from './config.js';
 import { lessons } from './lessons.js';
-import { explain } from './gemini.js';
+import { advise, explain } from './gemini.js';
 import { logger } from './logger.js';
 import type { LabManager, LabSession } from './types.js';
 
@@ -67,6 +67,18 @@ export function createApp(manager: LabManager) {
       const output = typeof req.body.output === 'string' ? stripAnsi(req.body.output).slice(-8000) : '';
       if (!command) return res.status(400).json({ error: '解説するコマンドがありません。' });
       res.json(await explain({ lesson: lesson.title, description: lesson.description, command, output }));
+    } catch (error) { next(error); }
+  });
+
+  app.post('/api/labs/:id/assistant', rateLimit({ windowMs: 60_000, limit: 10 }), async (req, res, next) => {
+    try {
+      validSession(manager, req.params.id);
+      const lessonId = Number(req.body.lessonId);
+      const lesson = lessons.find((candidate) => candidate.id === lessonId);
+      if (!lesson) return res.status(400).json({ error: 'レッスンが正しくありません。' });
+      const message = typeof req.body.message === 'string' ? req.body.message.trim().slice(0, 1200) : '';
+      if (!message) return res.status(400).json({ error: '相談内容を入力してください。' });
+      res.json(await advise({ lesson: lesson.title, description: lesson.description, message }));
     } catch (error) { next(error); }
   });
 

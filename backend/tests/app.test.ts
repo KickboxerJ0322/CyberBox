@@ -38,6 +38,18 @@ describe('CyberBox API', () => {
     const response = await request(app).post(`/api/labs/${start.body.sessionId}/explain`).send({ lessonId: 3, command: 'nmap target', output: '3000/tcp open http' });
     expect(response.status).toBe(200);
     expect(response.body.details.length).toBeGreaterThan(0);
+    expect(['gemini', 'fallback']).toContain(response.body.source);
+    expect(response.body).toHaveProperty('model');
+  });
+
+  it('returns assistant commands with source and server-side safety status', async () => {
+    const { app } = setup();
+    const start = await request(app).post('/api/labs');
+    const response = await request(app).post(`/api/labs/${start.body.sessionId}/assistant`).send({ lessonId: 6, message: 'ログインのSQLインジェクションを試したい' });
+    expect(response.status).toBe(200);
+    expect(['gemini', 'fallback']).toContain(response.body.source);
+    expect(response.body.commands.length).toBeGreaterThan(0);
+    expect(response.body.commands[0].safe).toBe(true);
   });
 
   it('removes conflicting proxy headers from target HTML', async () => {
