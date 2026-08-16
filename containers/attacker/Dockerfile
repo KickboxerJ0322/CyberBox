@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && printf '\nexport PS1="\\[\\e[32m\\]cyberbox@lab\\[\\e[0m\\]:\\[\\e[34m\\]\\w\\[\\e[0m\\]$ "\n' >> /home/cyberbox/.bashrc \
     && printf 'CyberRoom isolated Kali training container. Only inspect the host named target.\n' > /home/cyberbox/README.txt \
     && chown -R cyberbox:cyberbox /home/cyberbox
+RUN ln -sf /usr/lib/nmap/nmap /usr/local/bin/nmap
 USER cyberbox
 WORKDIR /home/cyberbox
 CMD ["sleep", "infinity"]
